@@ -1,3 +1,4 @@
+import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch, Circle
@@ -234,7 +235,7 @@ class FantasyMindMap:
                        arrowprops=dict(arrowstyle='->', color='darkblue', lw=2))
     
     def plot_mindmap(self, expand_council=False):
-        """Plota o mapa mental com tema de fantasia"""
+        """Plota o mapa mental com tema de fantasia - versão Streamlit"""
         if expand_council:
             self.expand_council_nodes()
         
@@ -274,7 +275,7 @@ class FantasyMindMap:
         # Legenda de cores
         legend_elements = []
         y_pos = 0.9
-        ax_detail.text(0.1, 0.95, '🗡️ Legenda de Elementos', 
+        ax_detail.text(0.1, 0.95, '⚔️ Legenda de Elementos', 
                       fontsize=14, fontweight='bold')
         
         for category, color in self.color_palette.items():
@@ -298,7 +299,7 @@ class FantasyMindMap:
         # Instruções
         ax_detail.text(0.1, 0.3, '📖 Instruções:', fontsize=12, fontweight='bold')
         instructions = [
-            '• Clique nos nós para expandir',
+            '• Use os botões para expandir elementos',
             '• Cores representam categorias',
             '• Símbolos indicam tipo de elemento',
             '• Setas mostram conexões narrativas'
@@ -310,8 +311,6 @@ class FantasyMindMap:
             y_pos -= 0.04
         
         plt.tight_layout()
-        plt.show()
-        
         return fig
     
     def get_node_details(self, node_id):
@@ -319,52 +318,82 @@ class FantasyMindMap:
         if node_id in self.node_details:
             return self.node_details[node_id]['details']
         return "Nó não encontrado"
-    
-    def interactive_exploration(self):
-        """Versão interativa para explorar o mapa"""
-        print("🏰 Bem-vindo ao Mapa Mental de RPG Medieval! 🏰")
-        print("\nComandos disponíveis:")
-        print("- 'plot': Visualizar o mapa")
-        print("- 'expand': Expandir o Conclave dos Sábios")
-        print("- 'details [id]': Ver detalhes de um nó")
-        print("- 'nodes': Listar todos os nós")
-        print("- 'quit': Sair\n")
-        
-        while True:
-            command = input("Digite um comando: ").strip().lower()
-            
-            if command == 'quit':
-                print("Até a próxima aventura! 🗡️")
-                break
-            elif command == 'plot':
-                self.plot_mindmap()
-            elif command == 'expand':
-                self.plot_mindmap(expand_council=True)
-                print("Conclave expandido!")
-            elif command.startswith('details'):
-                parts = command.split()
-                if len(parts) > 1:
-                    node_id = parts[1]
-                    details = self.get_node_details(node_id)
-                    print(f"\n📋 Detalhes do nó {node_id}:")
-                    print(details)
-                else:
-                    print("Por favor, especifique um ID de nó")
-            elif command == 'nodes':
-                print("\n🗂️ Nós disponíveis:")
-                for node_id in self.G.nodes():
-                    label = self.node_details[node_id]['label']
-                    print(f"  {node_id}: {label}")
-            else:
-                print("Comando não reconhecido. Digite 'quit' para sair.")
 
-# Exemplo de uso
+
+def main():
+    st.set_page_config(page_title="Mapa Mental RPG", page_icon="🏰", layout="wide")
+    
+    st.title("🏰 Mapa Mental - Sessão de RPG Medieval")
+    st.markdown("---")
+    
+    # Inicializa o mapa mental no session state
+    if 'fantasy_map' not in st.session_state:
+        st.session_state.fantasy_map = FantasyMindMap()
+    
+    # Sidebar para controles
+    st.sidebar.header("🎮 Controles")
+    
+    # Botão para expandir conclave
+    expand_council = st.sidebar.checkbox("Expandir Conclave dos Sábios", value=False)
+    
+    # Botão para mostrar detalhes
+    show_details = st.sidebar.checkbox("Mostrar Painel de Detalhes", value=True)
+    
+    # Selector de nó para detalhes
+    node_options = list(st.session_state.fantasy_map.G.nodes())
+    selected_node = st.sidebar.selectbox(
+        "Selecione um nó para ver detalhes:",
+        options=node_options,
+        format_func=lambda x: f"{x}: {st.session_state.fantasy_map.node_details[x]['label']}"
+    )
+    
+    # Layout principal
+    col1, col2 = st.columns([3, 1] if show_details else [1])
+    
+    with col1:
+        st.subheader("📊 Mapa Mental")
+        
+        # Plota o mapa
+        fig = st.session_state.fantasy_map.plot_mindmap(expand_council=expand_council)
+        st.pyplot(fig)
+    
+    if show_details:
+        with col2:
+            st.subheader("📋 Detalhes do Nó")
+            
+            if selected_node:
+                node_info = st.session_state.fantasy_map.node_details[selected_node]
+                
+                st.write(f"**ID:** {selected_node}")
+                st.write(f"**Título:** {node_info['label']}")
+                st.write(f"**Categoria:** {node_info['color'].title()}")
+                
+                st.markdown("**Descrição:**")
+                st.text(node_info['details'])
+                
+                # Mostra cor do nó
+                color = st.session_state.fantasy_map.color_palette[node_info['color']]
+                st.color_picker("Cor do nó:", color, disabled=True)
+    
+    # Lista de todos os nós
+    st.markdown("---")
+    st.subheader("📝 Todos os Nós Disponíveis")
+    
+    cols = st.columns(3)
+    nodes = list(st.session_state.fantasy_map.G.nodes())
+    
+    for i, node_id in enumerate(nodes):
+        with cols[i % 3]:
+            node_info = st.session_state.fantasy_map.node_details[node_id]
+            
+            with st.expander(f"{node_id}: {node_info['label']}"):
+                st.write(f"**Categoria:** {node_info['color'].title()}")
+                st.text(node_info['details'])
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("*Criado para sessões de RPG medieval - Explore as conexões narrativas!*")
+
+
 if __name__ == "__main__":
-    # Cria o mapa mental
-    fantasy_map = FantasyMindMap()
-    
-    # Plota o mapa básico
-    fantasy_map.plot_mindmap()
-    
-    # Para versão interativa, descomente a linha abaixo:
-    # fantasy_map.interactive_exploration()
+    main()
